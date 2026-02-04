@@ -1,0 +1,61 @@
+{{
+	def is_alpine:
+		env.VARIANT | index("alpine")
+-}}
+{{
+	def is_apache:
+		env.VARIANT == "apache"
+-}}
+# -----------------------------------------------------------------------------
+# Official JCB v{{ env.JCB_VERSION }} image: extend the official Joomla! v{{ env.JOOMLA_VERSION }} image
+# -----------------------------------------------------------------------------
+FROM joomla:{{ env.JOOMLA_VERSION }}-php{{ env.PHP_VERSION }}-{{ env.VARIANT }}
+
+# Metadata
+LABEL maintainer="{{ env.MAINTAINERS }}"
+LABEL org.opencontainers.image.title="Joomla! Component Builder - JoomEngine"
+LABEL org.opencontainers.image.description="Joomla! v{{ env.JOOMLA_VERSION }} + Component Builder v{{ env.JCB_VERSION }}"
+LABEL org.opencontainers.image.version="{{ env.JCB_VERSION }}"
+LABEL org.opencontainers.image.source="https://github.com/octoleo/joomengine"
+
+{{ if is_alpine then ( -}}
+# -----------------------------------------------------------------------------
+# Tools needed for privilege-drop in alpine variants
+# -----------------------------------------------------------------------------
+RUN set -eux; \
+	apk add --no-cache \
+		su-exec \
+	;
+
+{{ ) else "" end -}}
+# -----------------------------------------------------------------------------
+# JCB metadata (required at build-time)
+# -----------------------------------------------------------------------------
+ENV JCB_VERSION {{ env.JCB_VERSION }}
+ENV JCB_SHA512 {{ env.JCB_SHA512 }}
+ENV JCB_PACKAGE {{ env.JCB_DOWNLOAD_URL }}
+ENV JCB_INSTALL_DIR /usr/src/joomengine
+
+# -----------------------------------------------------------------------------
+# Download & verify JCB package (immutable, pinned, hash-verified)
+# -----------------------------------------------------------------------------
+RUN set -eux; \
+	mkdir -p "$JCB_INSTALL_DIR"; \
+	curl -fSL "$JCB_PACKAGE" -o "$JCB_INSTALL_DIR/jcb.zip"; \
+	echo "$JCB_SHA512  $JCB_INSTALL_DIR/jcb.zip" | sha512sum -c -; \
+	chown -R www-data:www-data "$JCB_INSTALL_DIR"
+
+# -----------------------------------------------------------------------------
+# JCB entrypoint
+# -----------------------------------------------------------------------------
+COPY docker-entrypoint.sh /jcb-entrypoint.sh
+RUN set -eux; \
+	chmod +x /jcb-entrypoint.sh
+
+ENTRYPOINT ["/jcb-entrypoint.sh"]
+{{ if is_apache then ( -}}
+CMD ["apache2-foreground"]
+{{ ) else ( -}}
+CMD ["php-fpm"]
+{{ ) end -}}
+

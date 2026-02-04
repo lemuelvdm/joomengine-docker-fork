@@ -1,0 +1,44 @@
+#
+# NOTE: THIS DOCKERFILE IS GENERATED VIA "joomengine.sh"
+#
+# PLEASE DO NOT EDIT IT DIRECTLY.
+#
+# -----------------------------------------------------------------------------
+# Official JCB v4.1.0 image: extend the official Joomla! v4.4.14 image
+# -----------------------------------------------------------------------------
+FROM joomla:4.4.14-php8.2-fpm
+
+# Metadata
+LABEL maintainer="Llewellyn van der Merwe <llewellyn.van-der-merwe@community.joomla.org> (@Llewellynvdm), Lemuel van der Merwe <lemuel.van-der-merwe@community.joomla.org> (@lemuelvdm)"
+LABEL org.opencontainers.image.title="Joomla! Component Builder - JoomEngine"
+LABEL org.opencontainers.image.description="Joomla! v4.4.14 + Component Builder v4.1.0"
+LABEL org.opencontainers.image.version="4.1.0"
+LABEL org.opencontainers.image.source="https://github.com/octoleo/joomengine"
+
+# -----------------------------------------------------------------------------
+# JCB metadata (required at build-time)
+# -----------------------------------------------------------------------------
+ENV JCB_VERSION 4.1.0
+ENV JCB_SHA512 0c75f70c654deda8c17fdadf5ac4727bb39dc445deddb950ac3cc8e5449cce0061903889c22a678f17644adc00465aa817156d52c6222247223412f3e9271a32
+ENV JCB_PACKAGE https://github.com/joomengine/pkg-component-builder/archive/refs/tags/v4.1.0.zip
+ENV JCB_INSTALL_DIR /usr/src/joomengine
+
+# -----------------------------------------------------------------------------
+# Download & verify JCB package (immutable, pinned, hash-verified)
+# -----------------------------------------------------------------------------
+RUN set -eux; \
+	mkdir -p "$JCB_INSTALL_DIR"; \
+	curl -fSL "$JCB_PACKAGE" -o "$JCB_INSTALL_DIR/jcb.zip"; \
+	echo "$JCB_SHA512  $JCB_INSTALL_DIR/jcb.zip" | sha512sum -c -; \
+	chown -R www-data:www-data "$JCB_INSTALL_DIR"
+
+# -----------------------------------------------------------------------------
+# JCB entrypoint
+# -----------------------------------------------------------------------------
+COPY docker-entrypoint.sh /jcb-entrypoint.sh
+RUN set -eux; \
+	chmod +x /jcb-entrypoint.sh
+
+ENTRYPOINT ["/jcb-entrypoint.sh"]
+CMD ["php-fpm"]
+

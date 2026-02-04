@@ -1,0 +1,29 @@
+services:
+  joomla:
+    image: octoleo/joomengine:latest
+    ports:
+      - "8080:80"
+    environment:
+      JOOMLA_DB_HOST: mariadb:3306
+      JOOMLA_DB_USER: joomengine
+      JOOMLA_DB_NAME: joomengine
+      JOOMLA_DB_PASSWORD: secure_password12345
+#      JOOMLA_CLI_COMMANDS: "componentbuilder:pull:joomla_component --items=d7e30702-ec49-45ac-8897-0389d61d6da0"
+    depends_on:
+      - mariadb
+    volumes:
+      - joomla_data:/var/www/html
+
+  mariadb:
+    image: mariadb:latest
+    environment:
+      MARIADB_USER: joomengine
+      MARIADB_DATABASE: joomengine
+      MARIADB_PASSWORD: secure_password12345
+      MARIADB_ROOT_PASSWORD: your_root_secure_password12345
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  joomla_data:
+  mariadb_data:
