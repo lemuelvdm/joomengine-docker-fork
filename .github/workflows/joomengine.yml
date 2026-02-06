@@ -6,8 +6,8 @@ on:
       - master
 
   schedule:
-    # Runs once a day at 02:30 UTC
-    - cron: "30 2 * * *"
+    # Runs every Monday at 03:33 CAT (01:33 UTC)
+    - cron: "33 1 * * 1"
 
   workflow_dispatch:
 
@@ -55,8 +55,8 @@ jobs:
       # --------------------------------------------------
       - name: Run joomengine.sh
         run: |
-          chmod +x ./joomengine.sh
-          ./joomengine.sh
+          chmod +x ./src/bin/joomengine.sh
+          ./src/bin/joomengine.sh
 
       # --------------------------------------------------
       # DETECT CHANGES
