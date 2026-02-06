@@ -39,8 +39,8 @@ octoleo/joomengine
 Examples:
 ```bash
 docker pull octoleo/joomengine:latest
-docker pull octoleo/joomengine:6.5.7
-docker pull octoleo/joomengine:6.5.7-php8.2-apache
+docker pull octoleo/joomengine:6.1.3
+docker pull octoleo/joomengine:6.1.3-php8.2-apache
 ```
 
 > `latest` always points to the **highest stable JCB release**, Apache variant, using the highest supported PHP version.

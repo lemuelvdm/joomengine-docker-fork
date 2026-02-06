@@ -8,7 +8,8 @@ if [ -n "${JOOMLA_DB_PASSWORD_FILE:-}" ] && [ -f "${JOOMLA_DB_PASSWORD_FILE}" ];
     JOOMLA_DB_PASSWORD=$(cat "$JOOMLA_DB_PASSWORD_FILE")
 fi
 
-# ensure we have defaults for these values
+# Always auto deploy
+#   so ensure we have defaults for these values
 : "${JOOMLA_DB_USER:=joomengine}"
 : "${JOOMLA_DB_NAME:=joomengine}"
 : "${JOOMLA_SITE_NAME:=Joomla Component Builder - JoomEngine}"

@@ -2,6 +2,22 @@
 set -euo pipefail
 
 # --------------------------------------------------
+# REPOSITORY ROOT RESOLUTION
+# --------------------------------------------------
+
+# Absolute path to this script (resolves symlinks)
+SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+
+# Try Git first (authoritative)
+if REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then
+	:
+else
+	# Fallback: assume src/bin layout
+	REPO_ROOT="$(realpath "$SCRIPT_DIR/../..")"
+fi
+
+# --------------------------------------------------
 # FLAGS / DEFAULTS
 # --------------------------------------------------
 QUIET="no"
@@ -70,19 +86,60 @@ if [[ "$QUIET" == "yes" ]]; then
 fi
 
 # --------------------------------------------------
-# CONFIG
+# Safety check
 # --------------------------------------------------
-VERSIONS_JSON="./versions.json"
-MAINTAINERS_JSON="./maintainers.json"
-HASHES_FILE="./hashes.txt"
+if [[ ! -d "$REPO_ROOT/conf" || ! -d "$REPO_ROOT/src" ]]; then
+	echo "[ERROR] Unable to determine repository root"
+	echo "Resolved REPO_ROOT=$REPO_ROOT"
+	exit 1
+fi
 
-DOCKERFILE_TEMPLATE="./Dockerfile.template"
-DOCKER_ENTRYPOINT="./docker-entrypoint.sh"
+# --------------------------------------------------
+# CONFIG (repo-root anchored)
+# --------------------------------------------------
+VERSIONS_JSON_FILE="$REPO_ROOT/conf/versions.json"
+MAINTAINERS_JSON_FILE="$REPO_ROOT/conf/maintainers.json"
+HASHES_FILE="$REPO_ROOT/conf/hashes.txt"
+BUILD_MANIFEST_FILE="$REPO_ROOT/conf/manifest.ndjson"
 
-TAG_REVIEW_FILE="./.log"
-BUILD_MANIFEST="./manifest.ndjson"
+# --------------------------------------------------
+# Safety check
+# --------------------------------------------------
+if [[ ! -f "$VERSIONS_JSON_FILE" ]]; then
+	echo "[ERROR] Unable to determine versions file path"
+	echo "Resolved VERSIONS_JSON_FILE=$VERSIONS_JSON_FILE"
+	exit 1
+fi
 
-AWK_SCRIPT='.jq-template.awk'
+if [[ ! -f "$MAINTAINERS_JSON_FILE" ]]; then
+	echo "[ERROR] Unable to determine maintainers file path"
+	echo "Resolved MAINTAINERS_JSON_FILE=$MAINTAINERS_JSON_FILE"
+	exit 1
+fi
+
+DOCKERFILE_TEMPLATE="$REPO_ROOT/src/docker/Dockerfile.template"
+DOCKER_ENTRYPOINT="$REPO_ROOT/src/docker/docker-entrypoint.sh"
+
+# --------------------------------------------------
+# Safety check
+# --------------------------------------------------
+if [[ ! -f "$DOCKERFILE_TEMPLATE" ]]; then
+	echo "[ERROR] Unable to determine docker template file path"
+	echo "Resolved DOCKERFILE_TEMPLATE=$DOCKERFILE_TEMPLATE"
+	exit 1
+fi
+
+if [[ ! -f "$DOCKER_ENTRYPOINT" ]]; then
+	echo "[ERROR] Unable to determine docker entrypoint file path"
+	echo "Resolved DOCKER_ENTRYPOINT=$DOCKER_ENTRYPOINT"
+	exit 1
+fi
+
+IMAGES_PATH="$REPO_ROOT/images"
+LOG_PATH="$REPO_ROOT/log"
+TAG_LOG_FILE="$LOG_PATH/joomengine-tag.log"
+
+AWK_SCRIPT="$REPO_ROOT/src/docker/.jq-template.awk"
 if [ -n "${BASHBREW_SCRIPTS:-}" ]; then
 	AWK_SCRIPT="$BASHBREW_SCRIPTS/jq-template.awk"
 elif [ "$BASH_SOURCE" -nt "$AWK_SCRIPT" ]; then
@@ -107,7 +164,7 @@ done
 generated_warning() {
 	cat <<-EOH
 	#
-	# NOTE: THIS DOCKERFILE IS GENERATED VIA "joomengine.sh"
+	# NOTE: THIS DOCKERFILE IS GENERATED VIA "src/bin/joomengine.sh"
 	#
 	# PLEASE DO NOT EDIT IT DIRECTLY.
 	#
@@ -125,9 +182,25 @@ MAINTAINERS="$(
 			.email + "> (@" +
 			.github + ")"
 		) | join(", ")
-	' "$MAINTAINERS_JSON"
+	' "$MAINTAINERS_JSON_FILE"
 )"
 export MAINTAINERS
+
+# --------------------------------------------------
+# MOVE TO WORKING PATH
+# --------------------------------------------------
+cd "$REPO_ROOT/conf"
+
+# --------------------------------------------------
+# INIT FOLDERS
+# --------------------------------------------------
+mkdir -p "$LOG_PATH"
+
+# --------------------------------------------------
+# INIT FILES
+# --------------------------------------------------
+: > "$TAG_LOG_FILE"
+: > "$BUILD_MANIFEST_FILE"
 
 # --------------------------------------------------
 # FORCE UPDATE OF ALL FILES
@@ -137,12 +210,6 @@ if [[ "$FORCE_UPDATE" == "yes" ]]; then
 else
 	touch "$HASHES_FILE"
 fi
-
-# --------------------------------------------------
-# INIT FILES
-# --------------------------------------------------
-: > "$TAG_REVIEW_FILE"
-: > "$BUILD_MANIFEST"
 
 # --------------------------------------------------
 # VERSION PARSING
@@ -182,7 +249,7 @@ ver_max() {
 # --------------------------------------------------
 # LOAD MAJORS
 # --------------------------------------------------
-mapfile -t MAJORS < <(jq -r 'keys[]' "$VERSIONS_JSON")
+mapfile -t MAJORS < <(jq -r 'keys[]' "$VERSIONS_JSON_FILE")
 
 # --------------------------------------------------
 # PASS 1: CONTEXT GENERATION + RELEASE COLLECTION
@@ -203,9 +270,9 @@ for MAJOR in "${MAJORS[@]}"; do
 		continue
 	fi
 
-	mapfile -t PHP_VERSIONS < <(jq -r ".\"$MAJOR\".php[]" "$VERSIONS_JSON")
-	mapfile -t VARIANTS < <(jq -r ".\"$MAJOR\".variants[]" "$VERSIONS_JSON")
-	JOOMLA_VERSION="$(jq -r --arg m "$MAJOR" '.[$m].joomla' "$VERSIONS_JSON")"
+	mapfile -t PHP_VERSIONS < <(jq -r ".\"$MAJOR\".php[]" "$VERSIONS_JSON_FILE")
+	mapfile -t VARIANTS < <(jq -r ".\"$MAJOR\".variants[]" "$VERSIONS_JSON_FILE")
+	JOOMLA_VERSION="$(jq -r --arg m "$MAJOR" '.[$m].joomla' "$VERSIONS_JSON_FILE")"
 
 	PHP_LIST_BY_MAJOR["$MAJOR"]="${PHP_VERSIONS[*]}"
 	VARIANT_LIST_BY_MAJOR["$MAJOR"]="${VARIANTS[*]}"
@@ -262,20 +329,21 @@ for MAJOR in "${MAJORS[@]}"; do
 				export MAJOR_VERSION="$MAJOR"
 				export JOOMLA_VERSION="$JOOMLA_VERSION"
 
-				dir="build/jcb${VERSION}/j${JOOMLA_VERSION}/php${PHP}/${VARIANT}"
-				mkdir -p "$dir"
+				target="jcb${VERSION}/j${JOOMLA_VERSION}/php${PHP}/${VARIANT}"
+				target_dir="${IMAGES_PATH}/${target}"
+				mkdir -p "$target_dir"
 
-				echo "  -> generating $dir"
+				echo "  -> generating ${target}"
 
-				cp "$DOCKER_ENTRYPOINT" "$dir/docker-entrypoint.sh"
-				chmod +x "$dir/docker-entrypoint.sh"
+				cp "$DOCKER_ENTRYPOINT" "${target_dir}/docker-entrypoint.sh"
+				chmod +x "${target_dir}/docker-entrypoint.sh"
 
 				{
 					generated_warning
-					gawk -f "$AWK_SCRIPT" "$DOCKERFILE_TEMPLATE"
-				} > "$dir/Dockerfile"
+					gawk -f "${AWK_SCRIPT}" "${DOCKERFILE_TEMPLATE}"
+				} > "${target_dir}/Dockerfile"
 
-				printf "%s %s %s %s %s\n" "$VERSION" "${PHP}" "${JOOMLA_VERSION}" "${VARIANT}" "${SHA}" >> "$HASHES_FILE"
+				printf "%s %s %s %s %s\n" "${VERSION}" "${PHP}" "${JOOMLA_VERSION}" "${VARIANT}" "${SHA}" >> "$HASHES_FILE"
 			done
 
 		done
@@ -308,7 +376,7 @@ done
 IMAGE_NAME="octoleo/joomengine"
 
 emit_tag() {
-	printf "  - %s:%s\n" "$IMAGE_NAME" "$1" >> "$TAG_REVIEW_FILE"
+	printf "  - %s:%s\n" "$IMAGE_NAME" "$1" >> "$TAG_LOG_FILE"
 }
 
 for i in "${!REL_VERSION[@]}"; do
@@ -368,7 +436,7 @@ for i in "${!REL_VERSION[@]}"; do
 				echo "JOOMLA   : $JOOMLA_VERSION"
 				echo "LEADERS  : stable_major=$IS_HIGHEST_STABLE_MAJOR stable_global=$IS_HIGHEST_STABLE_GLOBAL pr_major=$IS_HIGHEST_PRERELEASE_MAJOR pr_global=$IS_HIGHEST_PRERELEASE_GLOBAL"
 				echo "TAGS:"
-			} >> "$TAG_REVIEW_FILE"
+			} >> "$TAG_LOG_FILE"
 
 			# ---- Base tag (always)
 			emit_once "${VERSION}-php${PHP}-${VARIANT}"
@@ -461,11 +529,11 @@ for i in "${!REL_VERSION[@]}"; do
 				fi
 			fi
 
-			BUILD_PATH="build/jcb${VERSION}/j${JOOMLA_VERSION}/php${PHP}/${VARIANT}"
+			build_path="${IMAGES_PATH}/jcb${VERSION}/j${JOOMLA_VERSION}/php${PHP}/${VARIANT}"
 
 			jq -nc \
 				--arg image "$IMAGE_NAME" \
-				--arg path "$BUILD_PATH" \
+				--arg path "$build_path" \
 				--arg version "$VERSION" \
 				--arg major "$V_MAJOR" \
 				--arg minor "$V_MINOR" \
@@ -484,15 +552,15 @@ for i in "${!REL_VERSION[@]}"; do
 					joomla: $joomla,
 					base_tag: $tags[0],
 					tags: $tags
-				}' >> "$BUILD_MANIFEST"
+				}' >> "$BUILD_MANIFEST_FILE"
 
-			echo >> "$TAG_REVIEW_FILE"
+			echo >> "$TAG_LOG_FILE"
 		done
 	done
 done
 
-echo "✅ Tag review written to: $TAG_REVIEW_FILE"
-echo "✅ Build manifest written to: $BUILD_MANIFEST"
+echo "✅ Tag review written to: $TAG_LOG_FILE"
+echo "✅ Build manifest written to: $BUILD_MANIFEST_FILE"
 
 # --------------------------------------------------
 # DOCKER AUTH VALIDATION (before build+push)
@@ -590,7 +658,7 @@ while IFS= read -r LINE || [[ -n "$LINE" ]]; do
 		fi
 	done
 
-done < "$BUILD_MANIFEST"
+done < "$BUILD_MANIFEST_FILE"
 
 echo
 echo "✅ All images built and tagged successfully"

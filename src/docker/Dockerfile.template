@@ -1,6 +1,6 @@
 {{
-	def is_alpine:
-		env.VARIANT | index("alpine")
+	def not_alpine:
+		(env.VARIANT | index("alpine") | not)
 -}}
 {{
 	def is_apache:
@@ -17,17 +17,26 @@ LABEL org.opencontainers.image.title="Joomla! Component Builder - JoomEngine"
 LABEL org.opencontainers.image.description="Joomla! v{{ env.JOOMLA_VERSION }} + Component Builder v{{ env.JCB_VERSION }}"
 LABEL org.opencontainers.image.version="{{ env.JCB_VERSION }}"
 LABEL org.opencontainers.image.source="https://github.com/octoleo/joomengine"
+{{ if not_alpine then ( -}}
 
-{{ if is_alpine then ( -}}
 # -----------------------------------------------------------------------------
-# Tools needed for privilege-drop in alpine variants
+# Security hardening (version-agnostic Python removal ;)
 # -----------------------------------------------------------------------------
 RUN set -eux; \
-	apk add --no-cache \
-		su-exec \
-	;
-
+	PY_PKGS="$(dpkg-query -W -f='${Package}\n' 'python*' 2>/dev/null || true)"; \
+	if [ -n "$PY_PKGS" ]; then \
+		apt-get purge -y --auto-remove $PY_PKGS; \
+	fi; \
+	rm -rf \
+		/usr/lib/python* \
+		/usr/local/lib/python* \
+		/usr/share/doc/python* \
+		/usr/bin/python* \
+	; \
+	apt-get clean; \
+	rm -rf /var/lib/apt/lists/*
 {{ ) else "" end -}}
+
 # -----------------------------------------------------------------------------
 # JCB metadata (required at build-time)
 # -----------------------------------------------------------------------------
