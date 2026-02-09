@@ -3,7 +3,7 @@ version: "3.9"
 services:
 
   mariadb:
-    image: mariadb:11
+    image: mariadb:latest
     container_name: joomengine-db
     restart: unless-stopped
 
@@ -20,21 +20,13 @@ services:
     tmpfs:
       - /var/lib/mysql
 
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-proot123"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-
-  joomla:
+  joomengine:
     image: octoleo/joomengine:latest
     container_name: joomengine-app
     restart: unless-stopped
 
-    depends_on:
-      mariadb:
-        condition: service_healthy
+    depends_on: mariadb
 
     ports:
       - "8080:80"
@@ -42,7 +34,7 @@ services:
     environment:
 
       # Database
-      JOOMLA_DB_HOST: mariadb
+      JOOMLA_DB_HOST: "mariadb:3306"
       JOOMLA_DB_USER: joomengine
       JOOMLA_DB_PASSWORD: joomengine123
       JOOMLA_DB_NAME: joomengine
@@ -61,9 +53,3 @@ services:
     tmpfs:
       - /var/www/html/cache
       - /var/www/html/tmp
-
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
