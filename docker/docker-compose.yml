@@ -4,7 +4,7 @@ services:
   joomla:
     image: octoleo/joomengine:latest
     ports:
-      - "8080:80"
+      - "80:80"
     environment:
       JOOMLA_DB_HOST: mariadb:3306
       JOOMLA_DB_USER: joomengine
