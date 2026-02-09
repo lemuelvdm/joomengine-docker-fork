@@ -4,8 +4,8 @@ services:
   joomla:
     image: octoleo/joomengine:latest
     ports:
-      - target: 8080
-        published: 80
+      - target: 80
+        published: 8080
         protocol: tcp
         mode: host
     environment:
@@ -19,9 +19,7 @@ services:
     volumes:
       - joomla_data:/var/www/html
     deploy:
-      mode: replicated
       replicas: 1
-      endpoint_mode: dnsrr
       
   mariadb:
     image: mariadb:latest
@@ -33,7 +31,6 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql
     deploy:
-      mode: replicated
       replicas: 1
 
 volumes:
