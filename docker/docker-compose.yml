@@ -28,6 +28,9 @@ services:
       MARIADB_ROOT_PASSWORD: your_root_secure_password12345
     volumes:
       - mariadb_data:/var/lib/mysql
+	deploy:
+      mode: replicated
+      replicas: 1
 
 volumes:
   joomla_data:
