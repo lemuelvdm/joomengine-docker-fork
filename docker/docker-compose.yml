@@ -1,55 +1,41 @@
-version: "3.9"
+version: "3.8"
 
 services:
 
   mariadb:
-    image: mariadb:latest
-    container_name: joomengine-db
-    restart: unless-stopped
+    image: mariadb:10.11
+    container_name: mariadb
 
     environment:
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: joomengine
       MYSQL_USER: joomengine
-      MYSQL_PASSWORD: joomengine123
-      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_PASSWORD: joomengine
 
-    command:
-      - --transaction-isolation=READ-COMMITTED
-      - --binlog-format=ROW
-
-    tmpfs:
-      - /var/lib/mysql
+    restart: always
 
 
-  joomengine:
+  joomla:
     image: octoleo/joomengine:latest
-    container_name: joomengine-app
-    restart: unless-stopped
-
-    depends_on: mariadb
+    container_name: joomla
 
     ports:
       - "8080:80"
 
     environment:
-
-      # Database
-      JOOMLA_DB_HOST: "mariadb:3306"
+      JOOMLA_DB_HOST: mariadb
       JOOMLA_DB_USER: joomengine
-      JOOMLA_DB_PASSWORD: joomengine123
+      JOOMLA_DB_PASSWORD: joomengine
       JOOMLA_DB_NAME: joomengine
       JOOMLA_DB_TYPE: mysqli
 
-      # Auto install
       JOOMLA_SITE_NAME: "JoomEngine Demo"
       JOOMLA_ADMIN_USER: "Admin"
       JOOMLA_ADMIN_USERNAME: admin
       JOOMLA_ADMIN_PASSWORD: admin123!
       JOOMLA_ADMIN_EMAIL: admin@example.com
 
-      # Optional JCB pull
-      # JOOMLA_CLI_COMMANDS: "componentbuilder:pull:joomla_component --items=UUID"
+    depends_on:
+      - mariadb
 
-    tmpfs:
-      - /var/www/html/cache
-      - /var/www/html/tmp
+    restart: always
