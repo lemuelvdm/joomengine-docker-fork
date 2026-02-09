@@ -7,7 +7,6 @@ services:
       - target: 80
         published: 8080
         protocol: tcp
-        mode: host
     environment:
       JOOMLA_DB_HOST: mariadb:3306
       JOOMLA_DB_USER: joomengine
