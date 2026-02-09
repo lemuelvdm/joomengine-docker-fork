@@ -1,4 +1,4 @@
-[![Try in Play With Docker](https://raw.githubusercontent.com/play-with-docker/stacks/master/assets/images/button.png)](https://labs.play-with-docker.com/?stack=https://raw.githubusercontent.com/lemuelvdm/joomengine-docker-fork/master/docker-compose.yml)
+[![Try in PWD](https://raw.githubusercontent.com/play-with-docker/stacks/master/assets/images/button.png)](https://labs.play-with-docker.com/?stack=https://raw.githubusercontent.com/lemuelvdm/joomengine-docker-fork/master/docker/docker-compose.yml)
 
 # Joomla Component Builder - Official Docker Images
 
