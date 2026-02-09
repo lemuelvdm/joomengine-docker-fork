@@ -1,23 +1,69 @@
-version: '3.8'
+version: "3.9"
 
 services:
-  joomla:
-    image: octoleo/joomengine:latest
-    ports:
-      - "8080:80"
-    environment:
-      JOOMLA_DB_HOST: mariadb:3306
-      JOOMLA_DB_USER: joomengine
-      JOOMLA_DB_NAME: joomengine
-      JOOMLA_DB_PASSWORD: secure_password12345
-#      JOOMLA_CLI_COMMANDS: "componentbuilder:pull:joomla_component --items=d7e30702-ec49-45ac-8897-0389d61d6da0"
-    depends_on:
-      - mariadb
 
   mariadb:
-    image: mariadb:latest
+    image: mariadb:11
+    container_name: joomengine-db
+    restart: unless-stopped
+
     environment:
-      MARIADB_USER: joomengine
-      MARIADB_DATABASE: joomengine
-      MARIADB_PASSWORD: secure_password12345
-      MARIADB_ROOT_PASSWORD: your_root_secure_password12345
+      MYSQL_DATABASE: joomengine
+      MYSQL_USER: joomengine
+      MYSQL_PASSWORD: joomengine123
+      MYSQL_ROOT_PASSWORD: root123
+
+    command:
+      - --transaction-isolation=READ-COMMITTED
+      - --binlog-format=ROW
+
+    tmpfs:
+      - /var/lib/mysql
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-proot123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  joomla:
+    image: octoleo/joomengine:latest
+    container_name: joomengine-app
+    restart: unless-stopped
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+    ports:
+      - "8080:80"
+
+    environment:
+
+      # Database
+      JOOMLA_DB_HOST: mariadb
+      JOOMLA_DB_USER: joomengine
+      JOOMLA_DB_PASSWORD: joomengine123
+      JOOMLA_DB_NAME: joomengine
+      JOOMLA_DB_TYPE: mysqli
+
+      # Auto install
+      JOOMLA_SITE_NAME: "JoomEngine Demo"
+      JOOMLA_ADMIN_USER: "Admin"
+      JOOMLA_ADMIN_USERNAME: admin
+      JOOMLA_ADMIN_PASSWORD: admin123!
+      JOOMLA_ADMIN_EMAIL: admin@example.com
+
+      # Optional JCB pull
+      # JOOMLA_CLI_COMMANDS: "componentbuilder:pull:joomla_component --items=UUID"
+
+    tmpfs:
+      - /var/www/html/cache
+      - /var/www/html/tmp
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
