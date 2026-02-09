@@ -1,6 +1,6 @@
-# Joomla Component Builder – Official Docker Images
+# Joomla Component Builder - Official Docker Images
 
-[![JoomEngine – Automated Build & Version Tracking](https://github.com/octoleo/joomengine/actions/workflows/joomengine.yml/badge.svg?branch=master)](https://github.com/octoleo/joomengine/actions/workflows/joomengine.yml)
+[![JoomEngine - Automated Build & Version Tracking](https://github.com/octoleo/joomengine/actions/workflows/joomengine.yml/badge.svg?branch=master)](https://github.com/octoleo/joomengine/actions/workflows/joomengine.yml)
 
 This repository contains the **official Docker image build system** for
 **Joomla Component Builder (JCB)**.
@@ -10,7 +10,7 @@ Joomla Component Builder Docker images across supported:
 
 - Joomla versions
 - PHP versions
-- Runtime variants (Apache / FPM)
+- Runtime variants (Apache / FPM / FPM-ALPINE)
 - Stable and prerelease channels
 
 All images are **generated, versioned, and published automatically** from
@@ -36,7 +36,7 @@ authoritative upstream release data.
 - A place to hand-edit image definitions
 - A CI script that hides build logic in YAML
 
-> **All build logic lives in `joomengine.sh`.**
+> **All build logic lives in `src/bin/joomengine.sh`.**
 > CI only authenticates, runs it, and commits the results.
 
 ---
@@ -51,11 +51,11 @@ You can pull images directly, for example:
 
 ```bash
 docker pull octoleo/joomengine:latest
-docker pull octoleo/joomengine:6.5.7
-docker pull octoleo/joomengine:6.5.7-php8.2-apache
+docker pull octoleo/joomengine:6.1.3
+docker pull octoleo/joomengine:6.1.3-php8.3-apache
 ````
 
-[Docker details ->](https://github.com/octoleo/joomengine/blob/master/DOCKER.md)
+[Docker details ->](https://github.com/octoleo/joomengine/blob/master/docker/README.md)
 
 ---
 
@@ -64,7 +64,7 @@ docker pull octoleo/joomengine:6.5.7-php8.2-apache
 Image generation is driven entirely by the script:
 
 ```
-./joomengine.sh
+./src/bin/joomengine.sh
 ```
 
 At a high level, the build engine performs the following steps:
@@ -79,18 +79,18 @@ At a high level, the build engine performs the following steps:
 
    * Joomla major versions
    * Supported PHP versions (per Joomla)
-   * Runtime variants (`apache`, `fpm`)
+   * Runtime variants (`apache`, `fpm`, `fpm-alpine`)
 
 3. **Generates build contexts**
 
-   * Creates versioned directory trees under `build/`
+   * Creates versioned directory trees under `images/`
    * Generates Dockerfiles from templates
    * Injects release metadata as build arguments
    * Copies and configures the Docker entrypoint
 
 4. **Tracks build state**
 
-   * Records processed builds in `hashes.txt`
+   * Records processed builds in `conf/hashes.txt`
    * Prevents rebuilding identical release+PHP+variant combinations
 
 5. **Calculates tag leadership**
@@ -102,7 +102,7 @@ At a high level, the build engine performs the following steps:
 
 6. **Emits a build manifest**
 
-   * Outputs a machine-readable NDJSON manifest (`manifest.ndjson`)
+   * Outputs a machine-readable NDJSON manifest (`conf/manifest.ndjson`)
    * Each line describes exactly one buildable image and its tags
 
 7. **Builds and publishes images**
@@ -126,7 +126,7 @@ This repository follows a **strict, predictable tagging policy**.
 Example:
 
 ```
-6.5.7-php8.2-apache
+6.1.3-php8.3-apache
 ```
 
 ---
@@ -195,15 +195,15 @@ Prereleases are tagged **without polluting stable tags**.
 Examples:
 
 ```
-6.6-rc
-6.6-rc1
-6.6-rc1-php8.3-apache
+6.1.4-rc
+6.1.4-rc1
+6.1.4-rc1-php8.3-apache
 ```
 
 Rules:
 
 * Numbered prereleases roll forward correctly
-* Unnumbered prereleases are treated as “highest in channel”
+* Unnumbered prereleases are treated as "highest in channel"
 * Stable tags are never reused for prereleases
 
 ---
@@ -212,19 +212,49 @@ Rules:
 
 ```
 .
-├── joomengine.sh          # The build engine (authoritative logic)
-├── versions.json          # Supported Joomla / PHP / variant matrix
-├── maintainers.json       # Image maintainer metadata
-├── Dockerfile.template    # Template used to generate Dockerfiles
-├── docker-entrypoint.sh   # Runtime entrypoint copied into images
-├── hashes.txt             # Tracks built release combinations
-├── manifest.ndjson        # Generated build manifest (NDJSON)
-├── build/                 # Generated build contexts
-└── .github/workflows/     # Automation (thin by design)
+├── conf/                           # Declarative data & state
+│   ├── versions.json               # Supported Joomla / PHP / variant matrix
+│   ├── maintainers.json            # Image maintainer metadata
+│   ├── hashes.txt                  # Tracks built release combinations
+│   └── manifest.ndjson             # (generated) build manifest (NDJSON)
+│
+├── images/                         # Generated Docker build contexts
+│   └── jcbX.Y.Z/                   # (generated) per-jcb-version
+│       └── jX.Y.Z/                 # (generated) per-joomla-version
+│           └── phpX.Y/             # (generated) per-php-version
+│               └── variant/        # (generated) per-variant
+│                   └── Dockerfile  # (generated) dockerfile
+│                   └── entrypoint  # (generated) entrypoint
+│
+├── log/                            # Logs folder (gitignored)
+│   └── joomengine-tag.log          # (generated) image tagging log (gitignored)
+│
+├── src/                            # Executable & reusable source
+│   ├── bin/
+│   │   └── joomengine.sh           # The build engine (authoritative logic)
+│   │
+│   └── docker/
+│       ├── Dockerfile.template     # Template used to generate Dockerfiles
+│       ├── docker-entrypoint.sh    # Runtime entrypoint copied into images
+│       ├── jq-template.awk         # jq/awk helpers for manifest rendering (gitignored)
+│       └── .gitignore
+│
+├── docker/                         # Developer-facing Docker usage
+│   ├── docker-compose.yml          # Basic example
+│   └── README.md                   # How to use these images
+│
+├── .github/
+│   └── workflows/                  # Automation (thin by design)
+│       └── joomengine.yml
+│
+├── .editorconfig
+├── .gitignore
+├── LICENSE
+└── README.md                       # Project overview (what / why)
 ```
 
-> **Do not edit generated files manually.**
-> They are overwritten by `joomengine.sh`.
+> **Do not edit generated image files manually.**
+> They are overwritten by `./src/bin/joomengine.sh`.
 
 ---
 
@@ -234,7 +264,7 @@ This repository uses GitHub Actions to run the build engine automatically.
 
 ### Triggers
 
-* Once per day (scheduled)
+* Once per week (scheduled)
 * On merge to `master`
 * Manual dispatch
 
@@ -243,7 +273,7 @@ This repository uses GitHub Actions to run the build engine automatically.
 1. Checks out the repository
 2. Installs required tooling
 3. Authenticates with Docker
-4. Runs `./joomengine.sh`
+4. Runs `./src/bin/joomengine.sh`
 5. Commits **any generated changes** back to the repository
 
 ### What CI does *not* do
@@ -261,15 +291,17 @@ All logic remains reviewable and reproducible locally.
 You can run the build engine locally:
 
 ```bash
-./joomengine.sh
+./src/bin/joomengine.sh
 ```
 
 Useful flags:
 
 ```bash
---dry-run      # No build, no push
---build-only   # Build locally, do not push
---quiet        # Suppress stdout
+-q, --quiet        Suppress all stdout output (exit code only)
+-n, --dry-run      Do not build or push anything
+-f, --force        Force update docker folder/files
+    --build-only   Build images locally, do not push
+-h, --help         Show this help and exit
 ```
 
 This makes local testing identical to CI behavior.
@@ -279,7 +311,7 @@ This makes local testing identical to CI behavior.
 ## 🧾 License
 
 ```txt
-Copyright (C) 2021–2026
+Copyright (C) 2021-2026
 Llewellyn van der Merwe
 
 Licensed under the **GNU General Public License v2 (GPLv2)**

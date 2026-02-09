@@ -485,9 +485,9 @@ for i in "${!REL_VERSION[@]}"; do
 				emit_once "latest"
 			fi
 
-			# ---- Prerelease rolling tags
+			# ---- Pre-release rolling tags
 			if [[ "$V_IS_STABLE" == "no" ]]; then
-				# Major-scoped leader for this prerelease type (numbered rolling tags)
+				# Major-scoped leader for this pre-release type (numbered rolling tags)
 				if [[ "$IS_HIGHEST_PRERELEASE_MAJOR" == "yes" ]]; then
 					# Minor/major numbered tags
 					emit_once "${V_MINOR}-${V_PR}${V_PR_NUM}-php${PHP}-${VARIANT}"
@@ -508,7 +508,7 @@ for i in "${!REL_VERSION[@]}"; do
 					fi
 				fi
 
-				# Global leader for this prerelease type (channel tags without number)
+				# Global leader for this pre-release type (channel tags without number)
 				if [[ "$IS_HIGHEST_PRERELEASE_GLOBAL" == "yes" ]]; then
 					emit_once "${V_MINOR}-${V_PR}-php${PHP}-${VARIANT}"
 					emit_once "${V_MAJOR}-${V_PR}-php${PHP}-${VARIANT}"
@@ -529,11 +529,11 @@ for i in "${!REL_VERSION[@]}"; do
 				fi
 			fi
 
-			build_path="${IMAGES_PATH}/jcb${VERSION}/j${JOOMLA_VERSION}/php${PHP}/${VARIANT}"
+			context_path="jcb${VERSION}/j${JOOMLA_VERSION}/php${PHP}/${VARIANT}"
 
 			jq -nc \
 				--arg image "$IMAGE_NAME" \
-				--arg path "$build_path" \
+				--arg context "$context_path" \
 				--arg version "$VERSION" \
 				--arg major "$V_MAJOR" \
 				--arg minor "$V_MINOR" \
@@ -543,7 +543,7 @@ for i in "${!REL_VERSION[@]}"; do
 				--argjson tags "$(printf '%s\n' "${IMAGE_TAGS[@]}" | jq -R . | jq -s .)" \
 				'{
 					image: $image,
-					path: $path,
+					context: $context,
 					version: $version,
 					major: $major,
 					minor: $minor,
@@ -593,10 +593,11 @@ while IFS= read -r LINE || [[ -n "$LINE" ]]; do
 
 	# Parse required fields
 	read -r IMAGE CONTEXT_PATH BASE_TAG < <(
-		echo "$LINE" | jq -r '[.image, .path, .base_tag] | @tsv'
+		echo "$LINE" | jq -r '[.image, .context, .base_tag] | @tsv'
 	)
 
 	FULL_BASE_IMAGE="${IMAGE}:${BASE_TAG}"
+	FULL_CONTEXT_PATH="${IMAGES_PATH}/${CONTEXT_PATH}"
 
 	# --------------------------------------------------
 	# HARD SKIP: Image already exists in Docker
@@ -618,10 +619,10 @@ while IFS= read -r LINE || [[ -n "$LINE" ]]; do
 	echo
 	echo "--------------------------------------------------"
 	echo "▶ Building $FULL_BASE_IMAGE"
-	echo "  Context : $CONTEXT_PATH"
+	echo "  Context : ${CONTEXT_PATH}"
 
 	if [[ "$DRY_RUN" == "no" ]]; then
-		docker build -t "$FULL_BASE_IMAGE" "$CONTEXT_PATH"
+		docker build -t "$FULL_BASE_IMAGE" "$FULL_CONTEXT_PATH"
 
 		echo "  ↪ Pushing $FULL_BASE_IMAGE"
 		if [[ "$BUILD_ONLY" == "no" ]]; then
@@ -642,7 +643,7 @@ while IFS= read -r LINE || [[ -n "$LINE" ]]; do
 		# Base tag already applied
 		[[ "$FULL_TAG" == "$FULL_BASE_IMAGE" ]] && continue
 
-		# Avoid retagging if tag already exists
+		# Avoid re-tagging if tag already exists
 		if docker image inspect "$FULL_TAG" >/dev/null 2>&1; then
 			echo "  ↪ Tag already exists, skipping: $FULL_TAG"
 			continue

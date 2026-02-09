@@ -6,6 +6,8 @@ Each image provides a **ready-to-use Joomla environment** with **Joomla Componen
 
 No manual installation. No guessing. Just run the container.
 
+[https://hub.docker.com/r/octoleo/joomengine](https://hub.docker.com/r/octoleo/joomengine)
+
 ---
 
 ## 🚀 What You Get
