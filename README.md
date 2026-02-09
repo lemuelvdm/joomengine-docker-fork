@@ -1,3 +1,5 @@
+[![Try in Play With Docker](https://raw.githubusercontent.com/play-with-docker/stacks/master/assets/images/button.png)](https://labs.play-with-docker.com/?stack=https://raw.githubusercontent.com/lemuelvdm/joomengine-docker-fork/master/docker-compose.yml)
+
 # Joomla Component Builder - Official Docker Images
 
 [![JoomEngine - Automated Build & Version Tracking](https://github.com/octoleo/joomengine/actions/workflows/joomengine.yml/badge.svg?branch=master)](https://github.com/octoleo/joomengine/actions/workflows/joomengine.yml)
